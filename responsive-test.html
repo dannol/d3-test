@@ -1,0 +1,247 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <style>
+  html, body
+  {
+    height: 100%;
+    margin: 0px;
+  }
+
+  body {
+    font: 10px sans-serif;
+  }
+
+  .axis path,
+  .axis line {
+    fill: none;
+    stroke: #000;
+    shape-rendering: crispEdges;
+  }
+
+  .circle {
+    fill: red;
+  }
+
+  .line
+  {
+    stroke: blue;
+    fill: none;
+  }
+
+  #chartContainer
+  {
+    overflow: hidden;
+    width:100%;
+    height:100%;
+  }
+  </style>
+  <title>Responsive D3 Line/Bubble Chart</title>
+</head>
+<body>
+  <!-- 
+    If IE8 or below then d3 will not work.  
+    Using the meta tag <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+      to attempt to use Google Chrome Frame if installed.
+    If not then if IE8 or below prompt to install Chrome Frame add-on (IE9 and above will run d3 fine).
+  -->
+  <!--[if lte IE 8]>
+  <script>
+    if (navigator.userAgent.indexOf("x64") != -1)
+    {
+      document.body.style.margin = 30;
+      document.write('<h1>Page not available in this browser :-(</h1><p>Unfortunately 
+      this page requires IE9 or above to display.</p><p>You can view this page correctly 
+      in Google Chrome, Firefox, Opera, Safari or any other standards compliant browser.</p>
+      <p>An alternative is to use the Google Chrome Frame Add-On but this only works with the 
+      32-bit version of Internet Explorer and you are currently using a 64-bit version.</p>');
+    }
+    else
+    {
+      alert('Unfortunately this page requires IE9 or above to display.\n\n
+      You can view this page correctly in Google Chrome, Firefox, Opera, Safari 
+      or any other standards compliant browser.\n\n
+      Alternatively you can install the Google Chrome Frame Add-On into your 
+      current version of Internet Explorer (32-bit only) by following these steps...');
+    }
+  </script>
+  <script type="text/javascript" 
+     src="http://ajax.googleapis.com/ajax/libs/chrome-frame/1/CFInstall.min.js"></script>
+
+  <style>
+    .chromeFrameInstallDefaultStyle {
+      width: 100%; /* default is 800px */
+      border: 5px solid blue;
+    }
+  </style>
+
+  <div id="prompt"></div>
+
+  <script>
+    if (navigator.userAgent.indexOf("x64") == -1)
+    {
+      window.attachEvent("onload", function() {
+        CFInstall.check({
+          mode: "inline", // the default
+          node: "prompt"
+        });
+      });
+    }
+  </script>
+  <![endif]-->
+  <div id="chartContainer"></div>
+  <script src="js/d3.v3.min.js"></script>
+  <script>
+
+  var padding = {top: 20, right: 20, bottom: 30, left: 50};
+  var parseDate = d3.time.format("%d-%b-%y").parse;
+  var sourceData, xScale, yScale, line;
+  var prevChartWidth = 0, prevChartHeight = 0;
+  var updateTransistionMS = 750; // milliseconds
+
+  // create svg and g to contain the chart contents
+  var chartSvg = d3.select("#chartContainer").append("svg")
+  .append("g")
+  .attr("class", "chartContainer")
+  .attr("transform", "translate(" + padding.left + "," + padding.top + ")");
+
+  // create the x axis container
+  chartSvg.append("g")
+  .attr("class", "x axis");
+
+  // create the y axis container
+  chartSvg.append("g")
+  .attr("class", "y axis");
+
+  // get the data
+  d3.tsv("data/responsive-data.tsv", function(error, data) {
+    // process data
+    data.forEach(function(d) {
+      d.date = parseDate(d.date);
+      d.close = +d.close;
+    });
+
+    // set the global data variable
+    sourceData = data;
+
+    // define the parts of the axis that aren't dependent on width or height
+    xScale = d3.time.scale()
+    .domain(d3.extent(sourceData, function(d) { return d.date; }));
+    
+    yScale = d3.scale.linear()
+    .domain([0, d3.max(sourceData, function(d) { return d.close; })]);
+
+    xAxis = d3.svg.axis()
+    .scale(xScale)
+    .orient("bottom");
+
+    yAxis = d3.svg.axis()
+    .scale(yScale)
+    .orient("left");
+
+    // declare a new line
+    line = d3.svg.line()
+    .x(function(d) { return xScale(d.date); })
+    .y(function(d) { return yScale(d.close); })
+    .interpolate("linear");
+
+    updateChart(true);
+  });
+
+  // called for initial update and updates for resize
+  function updateChart(init)
+  {
+    // get the height and width subtracting the padding
+    var chartWidth = document.getElementById('chartContainer')
+    .getBoundingClientRect().width - padding.left - padding.right;
+    
+    var chartHeight = document.getElementById('chartContainer')
+    .getBoundingClientRect().height - padding.top - padding.bottom;
+
+    // only update if chart size has changed
+    if ((prevChartWidth != chartWidth) ||
+      (prevChartHeight != chartHeight))
+    {
+      prevChartWidth = chartWidth;
+      prevChartHeight = chartHeight;
+
+      //set the width and height of the SVG element
+      chartSvg.attr("width", chartWidth + padding.left + padding.right)
+      .attr("height", chartHeight + padding.top + padding.bottom);
+
+      // ranges are based on the width and height available so reset
+      xScale.range([0, chartWidth]);
+      yScale.range([chartHeight, 0]);
+
+      if (init)
+      {
+        // if first run then just display axis with no transition
+        chartSvg.select(".x")
+        .attr("transform", "translate(0," + chartHeight + ")")
+        .call(xAxis);
+
+        chartSvg.select(".y")
+        .call(yAxis);
+      }
+      else
+      {
+        // for subsequent updates use a transistion to animate the axis to the new position
+        var t = chartSvg.transition().duration(updateTransistionMS);
+
+        t.select(".x")
+        .attr("transform", "translate(0," + chartHeight + ")")
+        .call(xAxis); 
+
+        t.select(".y")
+        .call(yAxis);
+      }
+
+      // bind up the data to an array of circles
+      var circle = chartSvg.selectAll("circle")
+      .data(sourceData);
+
+      // if already existing then transistion each circle to its new position
+      circle.transition()
+      .duration(updateTransistionMS)
+      .attr("cx", function(d) { return xScale(d.date); })
+      .attr("cy", function(d) { return yScale(d.close); });
+
+      // if new circle then just display
+      circle.enter().append("circle")
+      .attr("cx", function(d) { return xScale(d.date); })
+      .attr("cy", function(d) { return yScale(d.close); })
+      .attr("r", 3)
+      .attr("class", "circle");
+
+      // bind up the data to the line
+      var lines = chartSvg.selectAll(".line")
+      .data([sourceData]); // needs to be an array (size of 1 for our data) of arrays
+
+      // transistion to new position if already exists
+      lines.transition()
+      .duration(updateTransistionMS)
+      .attr("d", line);
+
+      // add line if not already existing
+      lines.enter().append("path")
+      .attr("class", "line")
+      .attr("d", line);
+    }
+  }
+
+  // look for resize but use timer to only call the update script when a resize stops
+  var resizeTimer;
+  window.onresize = function(event) {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function()
+    {
+      updateChart(false);
+    }, 100);
+  }
+
+  </script>
+</body>
+</html>
