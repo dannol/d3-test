@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+	<style>
+
+		body {
+			font: 10px sans-serif;
+		}
+
+		.axis path,
+		.axis line {
+			fill: none;
+			stroke: #666;
+			shape-rendering: crispEdges;
+		}
+
+		.y.axis .tick line {
+			/*display: none;*/
+		}
+
+		.x.axis path {
+			/*display: none;*/
+		}
+
+		.line {
+			fill: none;
+			stroke: steelblue;
+			stroke-width: 1.5px;
+			cursor: pointer;
+		}
+		.line:hover {
+			stroke-width: 3px;
+		}
+
+		.data-container {
+			background: #f3f3f3;
+			width: 100%;
+			height: 500px;
+		}
+
+	</style>
+</head>
+<body>
+	<div class="data-container"></div>
+
+	<script src="http://d3js.org/d3.v3.js"></script>
+	<script>
+		// Using parseInt to strip of the 'px' portion of height and width
+		var containerWidth = parseInt(d3.select(".data-container").style("width"), 10);
+		var containerHeight = parseInt(d3.select(".data-container").style("height"), 10);
+		var margin = {top: 20, right: 80, bottom: 30, left: 50},
+		width = containerWidth - margin.left - margin.right;
+		height = containerHeight - margin.top - margin.bottom;
+
+		var parseDateTime = d3.time.format("%Y%m%d").parse;
+
+		var x = d3.time.scale()
+		.range([0, width]);
+
+		var y = d3.scale.linear()
+		.range([height, 0]);
+
+		var color = d3.scale.category10();
+
+		var xAxis = d3.svg.axis()
+		.scale(x)
+		.orient("bottom");
+
+		var yAxis = d3.svg.axis()
+		.scale(y)
+		.orient("left");
+
+		var line = d3.svg.line()
+		.interpolate("basis")
+		.x(function(d) { return x(d.datetime); })
+		.y(function(d) { return y(d.load); });
+
+		var svg = d3.select(".data-container").append("svg")
+		.attr("width", width + margin.left + margin.right)
+		.attr("height", height + margin.top + margin.bottom)
+		.append("g")
+		.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+		updateChart();
+
+		d3.select(window).on('resize', resize); 
+
+		function updateChart() {
+			d3.tsv("data/data.tsv", function(error, data) {
+				color.domain(d3.keys(data[0]).filter(function(key) { return key !== "datetime"; }));
+
+				data.forEach(function(d) {
+					d.datetime = parseDateTime(d.datetime);
+				});
+
+				var similardays = color.domain().map(function(name) {
+					return {
+						name: name,
+						values: data.map(function(d) {
+							return {datetime: d.datetime, load: +d[name]};
+						})
+					};
+				});
+
+				x.domain(d3.extent(data, function(d) { return d.datetime; }));
+
+				y.domain([
+					d3.min(similardays, function(c) { return d3.min(c.values, function(v) { return v.load; }); }),
+					d3.max(similardays, function(c) { return d3.max(c.values, function(v) { return v.load; }); })
+					]);
+
+				svg.append("g")
+				.attr("class", "x axis")
+				.attr("transform", "translate(0," + height + ")")
+				.call(xAxis);
+
+				svg.append("g")
+				.attr("class", "y axis")
+				.call(yAxis)
+				.append("text")
+				.attr("transform", "rotate(-90)")
+				.attr("y", 6)
+				.attr("dy", ".71em")
+				.style("text-anchor", "end")
+				.text("Load");
+
+				var similarday = svg.selectAll(".similarday")
+				.data(similardays)
+				.enter().append("g")
+				.attr("class", "similarday");
+
+				similarday.append("path")
+				.attr("class", "line")
+				.attr("d", function(d) { return line(d.values); })
+				.style("stroke", function(d) { return color(d.name); });
+
+				similarday.append("text")
+				.datum(function(d) { return {name: d.name, value: d.values[d.values.length - 1]}; })
+				.attr("transform", function(d) { return "translate(" + x(d.value.datetime) + "," + y(d.value.load) + ")"; })
+				.attr("x", 3)
+				.attr("dy", ".35em")
+				.text(function(d) { return d.name; });
+			});
+}
+
+function resize() {
+		    // update width
+		    width = parseInt(d3.select('.data-container').style('width'), 10);
+		    width = width - margin.left - margin.right;
+
+		    console.log(width);
+
+		    // reset x range
+		    x.range([0, width]);
+
+		    d3.select(svg.node().parentNode)
+		    .attr("width", width + margin.left + margin.right);
+
+		    // updateChart();
+
+		    // // do the actual resize...
+		}
+	</script>
+</body>
+</html>
