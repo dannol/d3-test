@@ -24,7 +24,7 @@
 			/*display: none;*/
 		}
 
-		.line {
+		.line, .similarday {
 			fill: none;
 			stroke: steelblue;
 			stroke-width: 1.5px;
@@ -226,11 +226,11 @@
 
 	      // add line if not already existing
 		    similarday.enter().append("path")
-		    .attr("class", "line")
+		    .attr("class", "similarday")
 		    .attr("d", function(d) { 
-					return line(d.values); 
-				})
-				.style("stroke", function(d) { return color(d.name); });
+				return line(d.values); 
+			})
+			.style("stroke", function(d) { return color(d.name); });
 
 	   //    // add line if not already existing
 	   //    similarday.append("path")
