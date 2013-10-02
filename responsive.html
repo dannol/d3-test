@@ -53,7 +53,7 @@
 	<script src="http://d3js.org/d3.v3.js"></script>
 	<script>
 		var padding = {top: 20, right: 20, bottom: 30, left: 50};
-		var parseDateTime = d3.time.format("%Y-%m-%dT%H:%M").parse;
+		var parseDateTime = d3.time.format("%H:%M").parse;
 		var sourceData, sourceDays, xScale, yScale, line;
 		var prevChartWidth = 0, prevChartHeight = 0;
 		var updateTransistionMS = 750; // milliseconds
@@ -74,13 +74,13 @@
 		chartSvg.append("g")
 		.attr("class", "y axis");
 
-		d3.tsv("data/data.tsv", function(error, data) {
+		d3.json("data/newdata.json", function(error, data) {
 			color = d3.scale.category10();
 
-			color.domain(d3.keys(data[0]).filter(function(key) { return key !== "datetime"; }));
+			color.domain(d3.keys(data[0]).filter(function(key) { return key !== "time"; }));
 
 			data.forEach(function(d) {
-				d.datetime = parseDateTime(d.datetime);
+				d.time = parseDateTime(d.time);
 			});
 
 			// set the global data variable
@@ -90,7 +90,7 @@
 				return {
 					name: name,
 					values: sourceData.map(function(d) {
-						return {datetime: d.datetime, temperature: +d[name]};
+						return {time: d.time, temperature: +d[name]};
 					})
 				};
 			});
@@ -98,7 +98,7 @@
 			sourceDays = similardays;
 
 			xScale = d3.time.scale()
-			.domain(d3.extent(data, function(d) { return d.datetime; }));
+			.domain(d3.extent(data, function(d) { return d.time; }));
 
 			yScale = d3.time.scale()
 			.domain([
@@ -118,16 +118,19 @@
 			.tickFormat(formatyAxis);
 
 			line = d3.svg.line()
-			.x(function(d) { return xScale(d.datetime); })
+			.x(function(d) { return xScale(d.time); })
 			.y(function(d) { return yScale(d.temperature); })
 			.interpolate("basis");
+
+			// render the table
+			var temperatureTable = tabulate(sourceData, ["time","Today","Sim Day 1","Sim Day 2","Sim Day 3","Sim Day 4","Sim Day 5"]);
 
 			updateChart(true);
 		});
 
-		function formatTime(datetime) {
+		function formatTime(time) {
 			var ampm = "";
-			var hour = datetime.getHours();
+			var hour = time.getHours();
 			switch (true) {
 				case (hour > 12):
 				hour = hour - 12;
@@ -224,6 +227,36 @@
 				})
 				.style("stroke", function(d) { return color(d.name); });
 			}
+		}
+
+		function tabulate(data, columns) {
+			var table = d3.select("body").append("table")
+						.attr("style", "margin-left: 250px"),
+			thead = table.append("thead"),
+			tbody = table.append("tbody");
+				
+			// append the header row
+			thead.append("tr")
+				.selectAll("th")
+				.data(columns)
+				.enter()
+				.append("th")
+				.text(function(column) { return column; });
+
+			// create a row for each object in the data
+			var rows = tbody.selectAll("tr") .data(data)
+							.enter()
+							.append("tr");
+			// create a cell in each row for each column
+			var cells = rows.selectAll("td") .data(function(row) {
+												return columns.map(function(column) {
+													return {column: column, value: row[column]};
+												}); })
+											.enter()
+											.append("td")
+											.attr("style", "font-family: Courier")
+											.html(function(d) { return d.value; }); 
+			return table;
 		}
 
 		// look for resize but use timer to only call the update script when a resize stops
