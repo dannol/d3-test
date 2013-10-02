@@ -41,7 +41,15 @@
 			background: #f3f3f3;
 			overflow: hidden;
 			width:100%;
-			height:80%;
+			height:50%;
+		}
+
+		th {
+			cursor: pointer;
+		}
+
+		th:hover {
+			background: #f3f3f3;
 		}
 
 	</style>
@@ -51,6 +59,7 @@
 	<div id="chartContainer"></div>
 
 	<script src="http://d3js.org/d3.v3.js"></script>
+	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
 	<script>
 		var padding = {top: 20, right: 20, bottom: 30, left: 50};
 		var parseDateTime = d3.time.format("%H:%M").parse;
@@ -59,6 +68,7 @@
 		var updateTransistionMS = 750; // milliseconds
 		var formatyAxis = d3.format('f');
 		var containerWidth = parseInt(d3.select("#chartContainer").style("width"), 10);
+		var temperatureTable;
 
 		// create svg and g to contain the chart contents
 		var chartSvg = d3.select("#chartContainer").append("svg")
@@ -120,10 +130,13 @@
 			line = d3.svg.line()
 			.x(function(d) { return xScale(d.time); })
 			.y(function(d) { return yScale(d.temperature); })
-			.interpolate("basis");
+			.interpolate("monotone");
 
 			// render the table
-			var temperatureTable = tabulate(sourceData, ["time","Today","Sim Day 1","Sim Day 2","Sim Day 3","Sim Day 4","Sim Day 5"]);
+			temperatureTable = tabulate(sourceData, ["time","Today","Sim Day 1","Sim Day 2","Sim Day 3","Sim Day 4","Sim Day 5"]);
+			// temperatureTable = tabulate(sourceData, ["time","Day 1","Day 2","Day 3"]);
+
+			$('th').click(sortColumn);
 
 			updateChart(true);
 		});
@@ -231,7 +244,7 @@
 
 		function tabulate(data, columns) {
 			var table = d3.select("body").append("table")
-						.attr("style", "margin-left: 250px"),
+						.attr("style", "width: 100%;margin-top:25px;"),
 			thead = table.append("thead"),
 			tbody = table.append("tbody");
 				
@@ -244,7 +257,7 @@
 				.text(function(column) { return column; });
 
 			// create a row for each object in the data
-			var rows = tbody.selectAll("tr") .data(data)
+			var rows = tbody.selectAll("tr").data(data)
 							.enter()
 							.append("tr");
 			// create a cell in each row for each column
@@ -259,6 +272,35 @@
 			return table;
 		}
 
+		function sortColumn() {
+			console.log($(this));
+			sortDirection = $(this).data("sort");
+			sortCol = $(this).text();
+			$(this).siblings().removeAttr("data-sort");
+
+			if (sortDirection == "descending") {
+				sortDirection = "ascending";
+			} else if (sortDirection == "ascending") {
+				sortDirection = "descending";
+			} else {
+				sortDirection = "descending";
+			}
+
+			$(this).attr("data-sort",sortDirection);
+			if (sortDirection == "descending") {
+				temperatureTable.selectAll("tbody tr") 
+		        .sort(function(a, b) {
+		                return d3.descending(a[sortCol], b[sortCol]);
+		        });
+			} else {
+				temperatureTable.selectAll("tbody tr") 
+		        .sort(function(a, b) {
+		                return d3.ascending(a[sortCol], b[sortCol]);
+		        });
+			}
+			
+		}
+
 		// look for resize but use timer to only call the update script when a resize stops
 		var resizeTimer;
 		window.onresize = function(event) {
@@ -268,6 +310,10 @@
 				updateChart(false);
 			}, 100);
 		}
+
+		$(document).ready(function() {
+			
+		});
 	</script>
 </body>
 </html>
